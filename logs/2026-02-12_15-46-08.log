@@ -1,0 +1,6 @@
+2026-02-12 15:46:08 | INFO     | setup:setup:9 - Setup complete.
+2026-02-12 15:46:08 | INFO     | YA_MCPServer_Tools:register_tools:82 - Registered 2 tools to MCP
+2026-02-12 15:46:08 | INFO     | YA_MCPServer_Prompts:register_prompts:74 - Registered 1 prompts to MCP
+2026-02-12 15:46:08 | INFO     | YA_MCPServer_Resources:register_resources:88 - Registered 2 resources to MCP
+2026-02-12 15:46:08 | INFO     | Z_MCPServer:start:126 - Starting MCP server: Z_MCPServer
+2026-02-12 15:46:08 | INFO     | Z_MCPServer:run_sse:78 - Running MCP server via SSE: Z_MCPServer (127.0.0.1:12345)
