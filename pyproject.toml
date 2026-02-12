@@ -1,7 +1,7 @@
 [project]
-name = "YA_MCPServer_Template"
-version = "0.1.0"
-description = "YA MCP Server Template"
+name = "Z_MCPServer"
+version = "0.1.1"
+description = "A trial in AI dev."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

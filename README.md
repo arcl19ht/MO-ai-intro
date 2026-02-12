@@ -1,4 +1,4 @@
-## YA_MCPServer_Template
+## Z_MCPServer
 
 [一句话功能简介]
 

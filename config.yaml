@@ -1,10 +1,10 @@
 server: # 服务器元数据
-  name: YA_MCPServer_Template
-  name_zh: YA MCP 服务器示例
-  author: YA Project
-  description: A simple hello mcp example for MCP Tool.
-  description_zh: MCP Tool 的一个简单示例。
-  version: 0.1.0
+  name: Z_MCPServer
+  name_zh: Z MCP 服务器
+  author: Z Project
+  description: A trial in AI dev.
+  description_zh: AI智能体开发的一次尝试。
+  version: 0.1.1
 
 transport: # 服务器启动方式配置
   type: "sse" # 可选值: stdio, sse
