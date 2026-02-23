@@ -12,5 +12,5 @@
 /**/.vscode
 /**/docs/**
 /**/.DS_Store
-.sops.yaml
 env.yaml
+.sops.yaml
