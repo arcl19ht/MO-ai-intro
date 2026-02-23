@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            width: 90%;
+            max-width: 1000px;
+            height: 90vh;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chat-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .chat-header .status {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message.user {
+            align-items: flex-end;
+        }
+        
+        .message.assistant {
+            align-items: flex-start;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        
+        .user .message-content {
+            background: #4f46e5;
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .assistant .message-content {
+            background: white;
+            color: #1f2937;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .tool-call-info {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background: #f3f4f6;
+            border-radius: 5px;
+            max-width: 70%;
+        }
+        
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+        
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: none;
+            font-family: inherit;
+        }
+        
+        #messageInput:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        
+        #sendBtn {
+            padding: 12px 24px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        #sendBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.4);
+        }
+        
+        #sendBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #9ca3af;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 MCP + DeepSeek AI 助手</h1>
+            <div class="status" id="status">正在连接MCP服务器...</div>
+        </div>
+        
+        <div class="messages-container" id="messages">
+            <!-- 欢迎消息 -->
+            <div class="message assistant">
+                <div class="message-content">
+                    你好！我是AI助手，已连接到MCP服务器。有什么可以帮你的吗？
+                </div>
+                <div class="tool-call-info" id="toolsInfo">
+                    正在加载可用工具...
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <textarea 
+                id="messageInput" 
+                placeholder="输入你的问题..." 
+                rows="1"
+                oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+            ></textarea>
+            <button id="sendBtn" onclick="sendMessage()">
+                发送
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // 聊天历史
+        let messageHistory = [];
+        let isLoading = false;
+        
+        // 页面加载时获取状态
+        window.onload = async function() {
+            await loadSystemStatus();
+        };
+        
+        // 加载系统状态
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('status');
+                const toolsInfoEl = document.getElementById('toolsInfo');
+                
+                if (data.mcp_connected) {
+                    statusEl.innerHTML = '✅ MCP已连接 | 工具: ' + data.tools_count;
+                    toolsInfoEl.innerHTML = '📦 可用工具: ' + 
+                        data.tools.map(t => t.name).join(', ') || '无';
+                } else {
+                    statusEl.innerHTML = '⚠️ MCP未连接，AI仍可对话';
+                    toolsInfoEl.innerHTML = 'MCP服务器未连接，工具调用功能不可用';
+                }
+            } catch (error) {
+                console.error('加载状态失败:', error);
+                document.getElementById('status').innerHTML = '❌ 连接失败';
+            }
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isLoading) return;
+            
+            // 清空输入框
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // 添加用户消息到界面
+            addMessage('user', message);
+            
+            // 显示加载状态
+            isLoading = true;
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loading"></span>发送中...';
+            
+            // 添加"正在输入"指示器
+            const typingIndicator = addTypingIndicator();
+            
+            try {
+                // 发送请求
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        history: messageHistory
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // 移除"正在输入"指示器
+                typingIndicator.remove();
+                
+                // 添加AI回复
+                addMessage('assistant', data.response, data.tool_call);
+                
+                // 更新历史记录
+                messageHistory.push({role: 'user', content: message});
+                messageHistory.push({role: 'assistant', content: data.response});
+                
+                // 保持历史记录在合理长度
+                if (messageHistory.length > 20) {
+                    messageHistory = messageHistory.slice(-20);
+                }
+                
+            } catch (error) {
+                console.error('发送失败:', error);
+                typingIndicator.remove();
+                addMessage('assistant', '抱歉，发生了错误：' + error.message);
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '发送';
+            }
+        }
+        
+        // 添加消息到界面
+        function addMessage(role, content, toolCall = null) {
+            const messagesContainer = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            messageDiv.appendChild(contentDiv);
+            
+            // 如果有工具调用信息，显示
+            if (toolCall) {
+                const toolInfo = document.createElement('div');
+                toolInfo.className = 'tool-call-info';
+                if (toolCall.type === 'tool_call') {
+                    toolInfo.innerHTML = `🔧 调用了工具: ${toolCall.tool} | 参数: ${JSON.stringify(toolCall.arguments)}`;
+                } else if (toolCall.type === 'error') {
+                    toolInfo.innerHTML = `❌ 工具调用失败: ${toolCall.message}`;
+                }
+                messageDiv.appendChild(toolInfo);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // 添加"正在输入"指示器
+        function addTypingIndicator() {
+            const messagesContainer = document.getElementById('messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant';
+            typingDiv.innerHTML = `
+                <div class="typing-indicator">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            `;
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return typingDiv;
+        }
+        
+        // 回车发送
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
