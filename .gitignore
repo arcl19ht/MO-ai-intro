@@ -1,0 +1,16 @@
+/**/logs/**
+/**/.venv/**
+/**/.git/**
+/**/__pycache__/**
+/**/uv.lock
+/**/.env
+/**/*.py[oc]
+/**/build/
+/**/dist/
+/**/wheels/
+/**/*.egg-info
+/**/.vscode
+/**/docs/**
+/**/.DS_Store
+.sops.yaml
+env.yaml
