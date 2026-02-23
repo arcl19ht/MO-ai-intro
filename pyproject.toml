@@ -12,4 +12,11 @@ dependencies = [
     "mcp[cli]>=1.14.0",
     "pyyaml>=6.0.2",
     "ruff>=0.14.4",
+    # 添加新依赖 - Web框架
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "jinja2>=3.1.0",
+    # 添加新依赖 - 其他工具
+    "python-multipart>=0.0.9",  # FastAPI 需要
+    "pydantic-settings>=2.4.0",  # 配置管理
 ]
