@@ -85,8 +85,12 @@ async def get_status():
         "mcp_connected": len(ai_driver.mcp_tools_info) > 0,
         "tools_count": len(ai_driver.mcp_tools_info),
         "resources_count": len(ai_driver.mcp_resources_info),
+        "resource_templates_count": len(ai_driver.mcp_resource_templates), 
         "prompts_count": len(ai_driver.mcp_prompts_info),
         "tools": ai_driver.mcp_tools_info,
+        "resources": ai_driver.mcp_resources_info,
+        "resource_templates": ai_driver.mcp_resource_templates, 
+        "prompts": ai_driver.mcp_prompts_info
     }
 
 

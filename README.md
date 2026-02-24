@@ -14,7 +14,7 @@
 
 | 工具名称 | 功能描述 | 输入 | 输出 | 备注 |
 | :------: | :------: | :--: | :--: | :--: |
-|          |          |      |      |      |
+|weather_tool|获取一个地点的天气|地点名称，返回格式|返回对应格式、地点的天气信息||
 |          |          |      |      |      |
 |          |          |      |      |      |
 
@@ -36,9 +36,12 @@
 
 ### 项目结构
 
-- `core`: [XXXX]
+- `core`: 
+  - `weather_api.py`: 获取天气API相关处理
 - `tools`: [XXXX]
-- `config.yaml`: [XXXX(添加 XX 额外配置)]
+- `config.yaml`: 
+  - `deepseek`: Deepseek模型相关配置
+  - `weather`: 获取天气API相关配置
 - `web_app`: 基于Fast API的web应用核心代码
   - `ai_driver.py`: AI驱动模块
   - `main.py`: FastAPI Web应用主模块
@@ -55,11 +58,12 @@ clone仓库后，更新新增依赖：
 uv sync
 ```
 #### 用sops读取API key
-按文档中`sops.mdx`中的指导生成公钥和私钥，添加`sops`配置文件。接着**在根目录**运行管理密钥文件的脚本，在打开的文本编辑器中输入：
+按文档中`sops.mdx`中的指导生成公钥和私钥，添加`sops`配置文件`.sops.yaml`。接着**在根目录**运行管理密钥文件的脚本（可复制到根目录下运行），在打开的文本编辑器中输入：
 ```yaml
 # 替换原先的默认内容
 secrets:
     deepseek_api_key: # 此处填入API key
+    # 其它API key……
 ```
 关闭编辑器后，会在根目录下生成新的`env.yaml`文件，API key设置完成。
 

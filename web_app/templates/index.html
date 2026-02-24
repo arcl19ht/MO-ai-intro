@@ -296,6 +296,7 @@
         <div class="chat-header">
             <h1>🤖 MCP + DeepSeek AI 助手</h1>
             <div class="status" id="status">正在连接MCP服务器...</div>
+            <div class="stats" id="stats" style="font-size: 12px; margin-top: 5px; opacity: 0.9;"></div>
         </div>
         
         <div class="messages-container" id="messages">
@@ -349,18 +350,66 @@
                 
                 const statusEl = document.getElementById('status');
                 const toolsInfoEl = document.getElementById('toolsInfo');
+                const statsEl = document.getElementById('stats');
                 
                 if (data.mcp_connected) {
-                    statusEl.innerHTML = '✅ MCP已连接 | 工具: ' + data.tools_count;
-                    toolsInfoEl.innerHTML = '📦 可用工具: ' + 
-                        data.tools.map(t => t.name).join(', ') || '无';
+                    statusEl.innerHTML = '✅ MCP已连接';
+                    
+                    // 显示详细统计
+                    if (statsEl) {
+                        statsEl.innerHTML = `📦 工具: ${data.tools_count} | 📄 静态资源: ${data.resources_count || 0} | 🔧 资源模板: ${data.resource_templates_count || 0} | 💡 提示词: ${data.prompts_count || 0}`;
+                    }
+                    
+                    // 构建显示内容
+                    let toolsText = '';
+                    
+                    // 工具列表
+                    if (data.tools && data.tools.length > 0) {
+                        toolsText += '📦 <strong>可用工具</strong>:<br>';
+                        data.tools.forEach(t => {
+                            toolsText += `  - ${t.name}: ${t.description || '无描述'}<br>`;
+                        });
+                    }
+                    
+                    // 静态资源列表
+                    if (data.resources && data.resources.length > 0) {
+                        toolsText += '<br>📄 <strong>静态资源</strong>:<br>';
+                        data.resources.forEach(r => {
+                            toolsText += `  - ${r.name}: ${r.description || '无描述'}<br>`;
+                            toolsText += `    URI: ${r.uri}<br>`;
+                        });
+                    }
+                    
+                    // 资源模板列表
+                    if (data.resource_templates && data.resource_templates.length > 0) {
+                        toolsText += '<br>🔧 <strong>资源模板（需参数）</strong>:<br>';
+                        data.resource_templates.forEach(t => {
+                            toolsText += `  - ${t.name}: ${t.description || '无描述'}<br>`;
+                            toolsText += `    URI模板: ${t.uriTemplate}<br>`;
+                        });
+                    }
+                    
+                    // 提示词列表
+                    if (data.prompts && data.prompts.length > 0) {
+                        toolsText += '<br>💡 <strong>可用提示词</strong>:<br>';
+                        data.prompts.forEach(p => {
+                            toolsText += `  - ${p.name}: ${p.description || '无描述'}<br>`;
+                        });
+                    }
+                    
+                    toolsInfoEl.innerHTML = toolsText || '暂无可用功能';
                 } else {
                     statusEl.innerHTML = '⚠️ MCP未连接，AI仍可对话';
                     toolsInfoEl.innerHTML = 'MCP服务器未连接，工具调用功能不可用';
+                    if (statsEl) statsEl.innerHTML = '';
                 }
             } catch (error) {
                 console.error('加载状态失败:', error);
                 document.getElementById('status').innerHTML = '❌ 连接失败';
+                const toolsInfoEl = document.getElementById('toolsInfo');
+                if (toolsInfoEl) {
+                    toolsInfoEl.innerHTML = '加载失败，请刷新页面重试';
+                }
             }
         }
         
