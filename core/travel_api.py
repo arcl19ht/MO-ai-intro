@@ -145,7 +145,7 @@ class TravelAPI:
         为了演示，这里假设您有一个 juhe_weather_key
         """
         from modules.YA_Secrets.secrets_parser import get_secret
-        weather_key = get_secret("juhe_weather_key")
+        weather_key = get_secret("juhe_weather_api_key")
         
         if not weather_key:
             return {"error": "未配置天气 API Key"}

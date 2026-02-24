@@ -79,48 +79,88 @@ async def get_travel_weather_tool(city: str) -> Any:
         return {"success": False, "error": str(e)}
 
 
-# @YA_MCPServer_Tool(
-#     name="plan_trip",
-#     title="Plan Trip Smartly",
-#     description="智能旅游规划：一键获取目的地的天气、热门景点和住宿建议。参数：destination(目的地城市)。",
-# )
-# async def plan_trip_tool(destination: str) -> Any:
-#     """智能规划入口：组合调用多个 API"""
-#     logger.info(f"智能规划行程: {destination}")
-#     try:
-#         # 1. 并行获取天气和景点 (异步优势！)
-#         import asyncio
-#         weather_task = travel_api.get_weather_simple(destination)
-#         spots_task = travel_api.search_attractions(destination, destination, limit=3)
-#         hotels_task = travel_api.search_hotels("酒店", destination, limit=2)
-        
-#         weather_res, spots_res, hotels_res = await asyncio.gather(
-#             weather_task, spots_task, hotels_task, return_exceptions=True
-#         )
+@YA_MCPServer_Tool(
+    name="plan_trip",
+    title="Plan Trip Smartly",
+    description="智能旅游规划助手：一键获取目的地的天气、热门景点和住宿建议。"
+    "\n【参数】destination: 目的地城市（如'杭州'、'北京'）。"
+    "\n【功能】自动组合天气、景点、酒店三个维度的信息，生成一份简报。",
+)
+async def plan_trip_tool(destination: str) -> Any:
+    """
+    智能规划入口：采用串行调用以确保稳定性
+    """
+    logger.info(f"🚀 开始智能规划行程: {destination}")
+    
+    try:
+        # --- 1. 获取天气 (带容错) ---
+        weather_data = {}
+        try:
+            weather_data = await travel_api.get_weather_simple(destination)
+            if not isinstance(weather_data, dict) or "error" in weather_data:
+                weather_data = {"realtime": {"info": "未知", "temperature": "?"}}
+        except Exception as e:
+            logger.warning(f"天气获取失败: {e}")
+            weather_data = {"realtime": {"info": "未知", "temperature": "?"}}
 
-#         # 2. 处理结果
-#         weather_info = weather_res if not isinstance(weather_res, Exception) else "天气数据暂缺"
-#         spots_info = spots_res if not isinstance(spots_res, Exception) else []
-#         hotels_info = hotels_res if not isinstance(hotels_res, Exception) else []
+        # --- 2. 获取景点 (带容错) ---
+        spots_data = []
+        try:
+            spots_data = await travel_api.search_attractions(destination, destination, limit=3)
+        except Exception as e:
+            logger.warning(f"景点获取失败: {e}")
+            spots_data = []
 
-#         # 3. 生成综合建议
-#         suggestion = f"🗺️ **{destination} 智能行程简报**:\n\n"
-        
-#         if isinstance(weather_info, dict):
-#             w = weather_info.get("realtime", {})
-#             suggestion += f"🌤️ **天气**: {w.get('info', '未知')} ({w.get('temperature', '?')}°C)\n"
-#             if "雨" in str(w.get('info', '')):
-#                 suggestion += "   💡 提示: 有雨，记得带伞!\n"
-        
-#         suggestion += f"\n🏞️ **推荐景点** ({len(spots_info)}个):\n"
-#         for spot in spots_info:
-#             suggestion += f"   - {spot['name']} ({spot.get('rating', '?')})\n"
-            
-#         suggestion += f"\n🏨 **推荐住宿** ({len(hotels_info)}个):\n"
-#         for hotel in hotels_info:
-#             suggestion += f"   - {hotel['name']} ({hotel.get('cost', '?')})\n"
-            
-#         return {"success": True, "plan": suggestion}
+        # --- 3. 获取酒店 (带容错) ---
+        hotels_data = []
+        try:
+            # 注意：这里直接传 destination，核心层会自动修正为 "destination 酒店"
+            hotels_data = await travel_api.search_hotels(destination, destination, limit=2)
+        except Exception as e:
+            logger.warning(f"酒店获取失败: {e}")
+            hotels_data = []
 
-#     except Exception as e:
-#         return {"success": False, "error": f"规划失败: {str(e)}"}
+        # --- 4. 生成自然语言报告 ---
+        report = f"🗺️ **{destination} 智能行程简报**\n\n"
+        
+        # 天气部分
+        w = weather_data.get("realtime", {})
+        report += f"🌤️ **当前天气**: {w.get('info', '未知')} ({w.get('temperature', '?')}°C)\n"
+        if "雨" in str(w.get('info', '')):
+            report += "   💡 *提示：有雨，记得带伞哦!*\n"
+        report += "\n"
+
+        # 景点部分
+        report += f"🏞️ **推荐景点** ({len(spots_data)}个):\n"
+        if spots_data:
+            for spot in spots_data:
+                rating = spot.get('rating', '暂无')
+                report += f"   - **{spot['name']}** (评分:{rating})\n"
+        else:
+            report += "   - 暂未找到热门景点\n"
+        report += "\n"
+
+        # 酒店部分
+        report += f"🏨 **推荐住宿** ({len(hotels_data)}个):\n"
+        if hotels_data:
+            for hotel in hotels_data:
+                cost = hotel.get('cost', '价格面议')
+                report += f"   - **{hotel['name']}** ({cost})\n"
+        else:
+            report += "   - 暂未找到合适住宿\n"
+        
+        report += "\n💡 **祝您旅途愉快！**"
+
+        # --- 5. 返回结果 (必须是纯字典) ---
+        return {
+            "success": True,
+            "destination": destination,
+            "summary": report
+        }
+
+    except Exception as e:
+        logger.error(f"规划任务彻底失败: {e}")
+        return {
+            "success": False,
+            "error": f"行程规划失败: {str(e)}"
+        }
