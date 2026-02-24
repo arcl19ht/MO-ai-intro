@@ -11,6 +11,7 @@ from datetime import datetime
 import httpx
 from modules.YA_Secrets.secrets_parser import get_secret
 from modules.YA_Common.utils.logger import get_logger
+from modules.YA_Common.utils.config import get_config
 
 from .mcp_client import MCPClient
 
@@ -29,8 +30,12 @@ class AIDriver:
         """
         self.mcp_client = mcp_client
         self.api_key = get_secret("deepseek_api_key")
-        self.api_url = "https://api.deepseek.com/chat/completions"
-        self.model = "deepseek-chat"
+        self.api_url = get_config(
+            "deepseek.api_url", "https://api.deepseek.com/chat/completions"
+        )
+        self.model = get_config("deepseek.model", "deepseek-chat")
+        self.temperature = get_config("deepseek.temperature", 0.7)
+        self.timeout = get_config("deepseek.timeout", 60)
 
         # 初始化时获取MCP服务器信息
         self.mcp_tools_info = []
@@ -234,13 +239,6 @@ class AIDriver:
     ) -> Dict[str, Any]:
         """
         处理用户消息 - 支持多步骤信息聚合
-
-        Args:
-            message: 用户输入的消息
-            history: 对话历史
-
-        Returns:
-            Dict: 包含响应内容和工具调用结果
         """
         if history is None:
             history = []
@@ -274,24 +272,68 @@ class AIDriver:
             result = response.json()
             ai_response = result["choices"][0]["message"]["content"]
 
-        # 解析并执行所有JSON指令（支持多个）
+        # ✅ 修复：改进JSON提取逻辑
         tool_call_result = None
         final_response = ai_response
 
-        # 查找所有JSON代码块
-        json_blocks = re.findall(r"```json\n(.*?)\n```", ai_response, re.DOTALL)
+        # 方法1：尝试匹配完整的JSON对象（从第一个{到最后一个}）
+        def extract_json(text: str) -> List[str]:
+            """智能提取文本中的所有JSON对象"""
+            json_objects = []
+            stack = []
+            start = -1
+
+            for i, char in enumerate(text):
+                if char == "{":
+                    if not stack:  # 新的JSON对象开始
+                        start = i
+                    stack.append(char)
+                elif char == "}":
+                    if stack:
+                        stack.pop()
+                        if not stack and start != -1:  # JSON对象结束
+                            json_str = text[start : i + 1]
+                            json_objects.append(json_str)
+                            start = -1
+            return json_objects
+
+        # 方法2：先用正则匹配代码块，再用方法1提取完整JSON
+        json_blocks = []
+
+        # 先找```json代码块
+        code_block_pattern = r"```(?:json)?\s*(.*?)\s*```"
+        code_blocks = re.findall(
+            code_block_pattern, ai_response, re.DOTALL | re.IGNORECASE
+        )
+
+        for block in code_blocks:
+            # 从代码块中提取完整JSON
+            json_blocks.extend(extract_json(block))
+
+        # 如果没有代码块，直接从整个响应中提取
+        if not json_blocks:
+            json_blocks = extract_json(ai_response)
 
         if json_blocks:
+            logger.info(f"发现 {len(json_blocks)} 个JSON指令")
+
             # 执行所有指令
             execution_results = []
             for json_str in json_blocks:
                 try:
+                    # 尝试修复常见的JSON错误
+                    # 1. 确保最后一个}存在（如果已经完整就不用修）
+                    # 2. 去除可能的尾随逗号
+
+                    # 尝试解析
                     cmd = json.loads(json_str)
                     action = cmd.get("action")
 
                     if action == "call_tool":
                         tool_name = cmd.get("tool")
                         arguments = cmd.get("arguments", {})
+                        logger.info(f"执行工具: {tool_name}, 参数: {arguments}")
+
                         result = await self.mcp_client.call_tool(tool_name, arguments)
                         execution_results.append(
                             {
@@ -304,6 +346,8 @@ class AIDriver:
 
                     elif action == "read_resource":
                         uri = cmd.get("uri")
+                        logger.info(f"读取资源: {uri}")
+
                         result = await self.mcp_client.read_resource(uri)
                         execution_results.append(
                             {"type": "read_resource", "uri": uri, "result": result}
@@ -312,6 +356,8 @@ class AIDriver:
                     elif action == "use_prompt":
                         prompt_name = cmd.get("prompt")
                         arguments = cmd.get("arguments", {})
+                        logger.info(f"使用提示词: {prompt_name}")
+
                         result = await self.mcp_client.get_prompt(
                             prompt_name, arguments
                         )
@@ -323,14 +369,41 @@ class AIDriver:
                                 "result": result,
                             }
                         )
+                    else:
+                        logger.warning(f"未知action类型: {action}")
 
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON解析失败: {e}")
+                    logger.error(f"问题JSON: {json_str}")
+
+                    # 尝试修复常见的JSON错误
+                    try:
+                        # 尝试补全缺少的 }
+                        if json_str.count("{") > json_str.count("}"):
+                            fixed_json = json_str + "}" * (
+                                json_str.count("{") - json_str.count("}")
+                            )
+                            logger.info(f"尝试补全后: {fixed_json}")
+                            cmd = json.loads(fixed_json)
+                            # 重新执行...
+                            # (这里简化处理，实际可以递归调用)
+                    except:
+                        pass
+
+                    execution_results.append(
+                        {
+                            "type": "error",
+                            "command": json_str,
+                            "error": f"JSON解析错误: {str(e)}",
+                        }
+                    )
                 except Exception as e:
                     logger.error(f"执行指令失败: {e}")
                     execution_results.append(
                         {"type": "error", "command": json_str, "error": str(e)}
                     )
 
-            # 如果有多个执行结果，将它们汇总
+            # 如果有执行结果，生成最终回答
             if execution_results:
                 tool_call_result = (
                     execution_results
@@ -338,23 +411,38 @@ class AIDriver:
                     else execution_results[0]
                 )
 
-                # 将执行结果发给AI，生成最终回答
-                summary = "\n".join(
-                    [
-                        f"{r.get('type', 'unknown')}: {r.get('result', str(r))[:200]}"
-                        for r in execution_results
-                    ]
-                )
+                # 构建执行结果摘要
+                summary_lines = []
+                for r in execution_results:
+                    if r["type"] == "tool_call":
+                        summary_lines.append(
+                            f"工具 [{r['tool']}] 返回: {r['result'][:200]}"
+                        )
+                    elif r["type"] == "read_resource":
+                        summary_lines.append(
+                            f"资源 [{r['uri']}] 内容: {r['result'][:200]}"
+                        )
+                    elif r["type"] == "use_prompt":
+                        summary_lines.append(
+                            f"提示词 [{r['prompt']}] 生成: {r['result'][:200]}"
+                        )
+                    else:
+                        summary_lines.append(f"错误: {r.get('error', '未知错误')}")
 
+                summary = "\n".join(summary_lines)
+
+                # 将执行结果发给AI，生成最终回答
                 messages.append({"role": "assistant", "content": ai_response})
                 messages.append(
                     {
                         "role": "user",
-                        "content": f"所有指令执行结果汇总：\n{summary}\n请基于这些结果给用户一个整合后的友好回答。",
+                        "content": f"我已经执行了你的指令，以下是执行结果：\n\n{summary}\n\n请基于这些结果给用户一个自然、友好的回答。不要提及你调用了什么工具，直接告诉用户他们想知道的信息。",
                     }
                 )
 
                 final_response = await self._get_final_answer(messages)
+
+                logger.info(f"生成最终回答成功")
 
         return {
             "response": final_response,

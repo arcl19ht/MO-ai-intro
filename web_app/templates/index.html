@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <!-- 添加marked.js用于Markdown渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -74,14 +76,95 @@
             max-width: 70%;
             padding: 12px 16px;
             border-radius: 15px;
-            line-height: 1.5;
+            line-height: 1.6;
             word-wrap: break-word;
+        }
+        
+        /* Markdown 样式 */
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin-top: 0.5em;
+            margin-bottom: 0.3em;
+            font-weight: 600;
+        }
+        
+        .message-content h1 { font-size: 1.5em; }
+        .message-content h2 { font-size: 1.3em; }
+        .message-content h3 { font-size: 1.1em; }
+        
+        .message-content p {
+            margin: 0.5em 0;
+        }
+        
+        .message-content ul,
+        .message-content ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+        
+        .message-content li {
+            margin: 0.2em 0;
+        }
+        
+        .message-content code {
+            background: rgba(0,0,0,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .message-content pre {
+            background: rgba(0,0,0,0.05);
+            padding: 1em;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 0.5em 0;
+        }
+        
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .message-content blockquote {
+            border-left: 4px solid #4f46e5;
+            margin: 0.5em 0;
+            padding-left: 1em;
+            color: #4b5563;
+        }
+        
+        .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5em 0;
+        }
+        
+        .message-content th,
+        .message-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5em;
+            text-align: left;
+        }
+        
+        .message-content th {
+            background: #f3f4f6;
         }
         
         .user .message-content {
             background: #4f46e5;
             color: white;
             border-bottom-right-radius: 5px;
+        }
+        
+        .user .message-content code {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .user .message-content pre {
+            background: rgba(255,255,255,0.1);
         }
         
         .assistant .message-content {
@@ -95,10 +178,29 @@
             font-size: 12px;
             color: #6b7280;
             margin-top: 5px;
-            padding: 5px 10px;
+            padding: 8px 12px;
             background: #f3f4f6;
-            border-radius: 5px;
+            border-radius: 8px;
             max-width: 70%;
+            border-left: 3px solid #4f46e5;
+        }
+        
+        .tool-call-info.tool {
+            border-left-color: #10b981;
+        }
+        
+        .tool-call-info.resource {
+            border-left-color: #f59e0b;
+        }
+        
+        .tool-call-info.prompt {
+            border-left-color: #8b5cf6;
+        }
+        
+        .tool-call-info.error {
+            border-left-color: #ef4444;
+            background: #fee2e2;
+            color: #b91c1c;
         }
         
         .input-container {
@@ -222,6 +324,14 @@
     </div>
     
     <script>
+        // 配置marked选项
+        marked.setOptions({
+            breaks: true,  // 支持换行符
+            gfm: true,     // 支持GitHub风格的Markdown
+            headerIds: false,
+            mangle: false
+        });
+        
         // 聊天历史
         let messageHistory = [];
         let isLoading = false;
@@ -295,7 +405,7 @@
                 // 移除"正在输入"指示器
                 typingIndicator.remove();
                 
-                // 添加AI回复
+                // 添加AI回复（支持Markdown）
                 addMessage('assistant', data.response, data.tool_call);
                 
                 // 更新历史记录
@@ -326,18 +436,56 @@
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+            
+            // 渲染Markdown
+            if (role === 'assistant') {
+                contentDiv.innerHTML = marked.parse(content);
+            } else {
+                contentDiv.textContent = content;
+            }
+            
             messageDiv.appendChild(contentDiv);
             
-            // 如果有工具调用信息，显示
+            // 如果有工具/资源/提示词调用信息，显示
             if (toolCall) {
                 const toolInfo = document.createElement('div');
                 toolInfo.className = 'tool-call-info';
-                if (toolCall.type === 'tool_call') {
-                    toolInfo.innerHTML = `🔧 调用了工具: ${toolCall.tool} | 参数: ${JSON.stringify(toolCall.arguments)}`;
-                } else if (toolCall.type === 'error') {
-                    toolInfo.innerHTML = `❌ 工具调用失败: ${toolCall.message}`;
+                
+                if (Array.isArray(toolCall)) {
+                    // 多个调用
+                    toolInfo.innerHTML = '📋 执行了多个操作：<br>';
+                    toolCall.forEach((call, index) => {
+                        if (call.type === 'tool_call') {
+                            toolInfo.innerHTML += `  ${index+1}. 🔧 工具: ${call.tool}<br>`;
+                        } else if (call.type === 'read_resource') {
+                            toolInfo.innerHTML += `  ${index+1}. 📄 资源: ${call.uri}<br>`;
+                        } else if (call.type === 'use_prompt') {
+                            toolInfo.innerHTML += `  ${index+1}. 💡 提示词: ${call.prompt}<br>`;
+                        }
+                    });
+                } else {
+                    // 单个调用
+                    if (toolCall.type === 'tool_call') {
+                        toolInfo.className += ' tool';
+                        toolInfo.innerHTML = `🔧 调用了工具: <strong>${toolCall.tool}</strong>`;
+                        if (toolCall.arguments) {
+                            toolInfo.innerHTML += `<br>📋 参数: ${JSON.stringify(toolCall.arguments, null, 2)}`;
+                        }
+                    } else if (toolCall.type === 'read_resource') {
+                        toolInfo.className += ' resource';
+                        toolInfo.innerHTML = `📄 读取了资源: <strong>${toolCall.uri}</strong>`;
+                    } else if (toolCall.type === 'use_prompt') {
+                        toolInfo.className += ' prompt';
+                        toolInfo.innerHTML = `💡 使用了提示词: <strong>${toolCall.prompt}</strong>`;
+                        if (toolCall.arguments) {
+                            toolInfo.innerHTML += `<br>📋 参数: ${JSON.stringify(toolCall.arguments, null, 2)}`;
+                        }
+                    } else if (toolCall.type === 'error') {
+                        toolInfo.className += ' error';
+                        toolInfo.innerHTML = `❌ 调用失败: ${toolCall.message || toolCall.error}`;
+                    }
                 }
+                
                 messageDiv.appendChild(toolInfo);
             }
             

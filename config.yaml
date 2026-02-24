@@ -22,3 +22,14 @@ logging: # 日志配置
     rotation: "10 MB"
     retention: "7 days"
     compression: "zip"
+
+# DeepSeek API配置
+deepseek:
+  api_url: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+  temperature: 0.7
+  timeout: 60
+
+# 聚合数据相关配置
+weather: # 天气API URL
+  api_url: "http://apis.juhe.cn/simpleWeather/query"
