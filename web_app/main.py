@@ -2,6 +2,7 @@
 FastAPI Web应用主模块
 功能：提供Web界面和API接口
 """
+
 from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
 
@@ -25,20 +26,23 @@ ai_driver = AIDriver(mcp_client)
 
 class ChatMessage(BaseModel):
     """聊天消息模型"""
+
     role: str
     content: str
 
 
 class ChatRequest(BaseModel):
     """聊天请求模型"""
+
     message: str
     history: List[Dict[str, str]] = []
 
 
 class ChatResponse(BaseModel):
     """聊天响应模型"""
+
     response: str
-    tool_call: Optional[Dict[str, Any]] = None  # ✅ 正确：明确允许为None
+    tool_call: Optional[Dict[str, Any]] = None
 
 
 @asynccontextmanager
@@ -58,7 +62,7 @@ app = FastAPI(
     title="MCP + DeepSeek 聊天界面",
     description="通过Web界面与MCP服务器和DeepSeek AI对话",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # 设置模板
@@ -69,8 +73,7 @@ templates = Jinja2Templates(directory="web_app/templates")
 async def home(request: Request):
     """提供聊天界面"""
     return templates.TemplateResponse(
-        "index.html", 
-        {"request": request, "title": "MCP AI 助手"}
+        "index.html", {"request": request, "title": "MCP AI 助手"}
     )
 
 
@@ -83,7 +86,7 @@ async def get_status():
         "tools_count": len(ai_driver.mcp_tools_info),
         "resources_count": len(ai_driver.mcp_resources_info),
         "prompts_count": len(ai_driver.mcp_prompts_info),
-        "tools": ai_driver.mcp_tools_info
+        "tools": ai_driver.mcp_tools_info,
     }
 
 
@@ -92,13 +95,11 @@ async def chat(request: ChatRequest):
     """处理聊天请求"""
     try:
         result = await ai_driver.process_message(
-            message=request.message,
-            history=request.history
+            message=request.message, history=request.history
         )
-        
+
         return ChatResponse(
-            response=result["response"],
-            tool_call=result.get("tool_call")
+            response=result["response"], tool_call=result.get("tool_call")
         )
     except Exception as e:
         logger.error(f"处理聊天请求失败: {e}")
