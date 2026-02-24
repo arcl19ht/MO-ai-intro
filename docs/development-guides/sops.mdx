@@ -59,8 +59,8 @@ You may need to restart your terminal for the change to take effect in new sessi
 
 注意事项：
 
-* 复制 `Public key` 部分的内容，后续加密文件时需要使用该公钥
-* 脚本会设置 `SOPS_AGE_KEY_FILE` 环境变量指向你的私钥文件路径，SOPS 会自动使用该私钥进行解密，请确保该环境变量已生效
+- 复制 `Public key` 部分的内容，后续加密文件时需要使用该公钥
+- 脚本会设置 `SOPS_AGE_KEY_FILE` 环境变量指向你的私钥文件路径，SOPS 会自动使用该私钥进行解密，请确保该环境变量已生效
 
 ### 更新环境变量（如尚未生效）
 
@@ -93,8 +93,8 @@ creation_rules:
 
 说明：
 
-* 公钥 `age13r4554wpmkkmh6lk2ky9d68nj7ctfgqv9d4f4ndu66h9usnxjfwsdcqvr7` 是 YA 组织的管理员公钥
-* 保留该公钥可以确保 YA 主仓库也能解密你的环境密钥文件
+- 公钥 `age13r4554wpmkkmh6lk2ky9d68nj7ctfgqv9d4f4ndu66h9usnxjfwsdcqvr7` 是 YA 组织的管理员公钥
+- 保留该公钥可以确保 YA 主仓库也能解密你的环境密钥文件
 
 ### 管理密钥文件
 
@@ -148,5 +148,5 @@ if __name__ == "__main__":
 
 说明：
 
-* `load_secrets()` 返回解密后的所有密钥字典
-* `get_secret(name)` 根据密钥名称获取对应的密钥值
+- `load_secrets()` 返回解密后的所有密钥字典
+- `get_secret(name)` 根据密钥名称获取对应的密钥值
