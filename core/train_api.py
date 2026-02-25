@@ -1,11 +1,12 @@
 """
 火车票查询API核心业务模块
-功能：封装聚合数据火车票查询API的调用逻辑
+功能：封装多数据源火车查询API调用逻辑（聚合数据 + 12306）
 """
 
 import httpx
+import asyncio
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from modules.YA_Common.utils.logger import get_logger
 from modules.YA_Common.utils.config import get_config
@@ -38,7 +39,10 @@ class TrainAPI:
 
     def __init__(self):
         """初始化API客户端"""
+        # API地址配置（可在 config.yaml 覆盖）
         self.api_url = get_config("train.api_url", "https://apis.juhe.cn/fapigw/train/query")
+
+        # 聚合数据Key
         self.api_key = get_secret("juhe_train_api_key")
 
         if not self.api_key:
@@ -93,10 +97,32 @@ class TrainAPI:
         # 参数验证
         self._validate_params(date, filter, departure_time_range)
 
-        if not self.api_key:
-            raise RuntimeError("API密钥未配置，请检查配置")
+        logger.info(f"查询列车: {departure_station} → {arrival_station} ({date})")
+        return await self._query_by_juhe(
+            departure_station,
+            arrival_station,
+            date,
+            search_type,
+            filter,
+            enable_booking,
+            departure_time_range,
+        )
 
-        # 构建请求参数
+    async def _query_by_juhe(
+        self,
+        departure_station: str,
+        arrival_station: str,
+        date: str,
+        search_type: str,
+        filter: Optional[str],
+        enable_booking: Optional[str],
+        departure_time_range: Optional[str],
+    ) -> Dict[str, Any]:
+        """调用聚合数据火车查询API"""
+        if not self.api_key:
+            raise RuntimeError("juhe_train_api_key 未配置，无法使用聚合数据火车API")
+
+        # 构建聚合数据请求参数
         params = {
             "key": self.api_key,
             "search_type": search_type,
@@ -113,21 +139,27 @@ class TrainAPI:
         if departure_time_range:
             params["departure_time_range"] = departure_time_range
 
-        logger.info(f"查询列车: {departure_station} → {arrival_station} ({date})")
-
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(self.api_url, params=params)
-                response.raise_for_status()
+            for attempt in range(2):
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    response = await client.get(self.api_url, params=params)
+                    response.raise_for_status()
 
-                result = response.json()
+                    result = response.json()
+                    # 检查业务状态码
+                    if result.get("error_code") != 0:
+                        error_msg = result.get("reason", f"未知错误({result.get('error_code')})")
 
-                # 检查业务状态码
-                if result.get("error_code") != 0:
-                    error_msg = result.get("reason", f"未知错误({result.get('error_code')})")
-                    raise RuntimeError(f"API返回错误: {error_msg}")
+                        # 聚合接口常见限流：每秒1次，等待后重试一次
+                        if "请求频率超过限制" in error_msg and attempt == 0:
+                            await asyncio.sleep(1.2)
+                            continue
 
-                return result
+                        raise RuntimeError(f"API返回错误: {error_msg}")
+
+                    return self._normalize_juhe_result(result, departure_station, arrival_station)
+
+            raise RuntimeError("API返回错误: 请求频率超过限制，请稍后重试")
 
         except httpx.TimeoutException:
             raise RuntimeError("API请求超时，请稍后重试")
@@ -155,17 +187,27 @@ class TrainAPI:
             )
 
             trains = result.get("result", [])
+            reason = result.get("reason", "")
+            error_code = result.get("error_code", 0)
 
             if not trains:
                 return f"未找到 {departure} → {arrival} 在 {date} 的列车信息。"
 
             # 构建友好输出
             output = f"🚆 **{departure} → {arrival}** ({date})\n\n"
+            output += f"返回状态: error_code={error_code}, reason={reason}\n"
             output += f"共找到 {len(trains)} 个车次：\n"
             output += "=" * 50 + "\n\n"
 
             for i, train in enumerate(trains[:10], 1):  # 最多显示10个
                 output += f"**{i}. {train.get('train_no')}**\n"
+                dep_station = train.get("departure_station") or departure
+                arr_station = train.get("arrival_station") or arrival
+                output += f"   🏁 站点: {dep_station} → {arr_station}\n"
+                dep_code = train.get("departure_station_code")
+                arr_code = train.get("arrival_station_code")
+                if dep_code and arr_code:
+                    output += f"   🚉 站码: {dep_code} → {arr_code}\n"
                 output += f"   🕒 {train.get('departure_time')} → {train.get('arrival_time')}  (历时 {train.get('duration')})\n"
 
                 # 显示票价信息
@@ -173,8 +215,19 @@ class TrainAPI:
                 if prices:
                     price_info = []
                     for p in prices[:3]:  # 最多显示3种票价
-                        price_info.append(f"{p.get('seat_name')}: ¥{p.get('price')}")
-                    output += f"   💰 {' | '.join(price_info)}\n"
+                        price_value = p.get("price")
+                        if price_value not in (None, "", "--"):
+                            price_info.append(f"{p.get('seat_name')}: ¥{price_value}")
+                    if price_info:
+                        output += f"   💰 {' | '.join(price_info)}\n"
+
+                # 如上游未来提供余票字段，可自动显现
+                seats = train.get("seat_availability", [])
+                if seats:
+                    seat_info = []
+                    for s in seats[:8]:
+                        seat_info.append(f"{s.get('seat_name')}: {s.get('remaining')}")
+                    output += f"   🎫 余票: {' | '.join(seat_info)}\n"
 
                 # 显示列车标签
                 flags = train.get("train_flags", [])
@@ -216,6 +269,9 @@ class TrainAPI:
         for route in routes:
             dep = route.get("departure")
             arr = route.get("arrival")
+            if not dep or not arr:
+                errors.append(f"无效路线参数: {route}")
+                continue
             try:
                 result = await self.query_trains(dep, arr, date, filter=filter)
                 trains = result.get("result", [])
@@ -231,10 +287,7 @@ class TrainAPI:
                             "count": len(trains),
                             "earliest": earliest.get("departure_time"),
                             "latest": latest.get("departure_time"),
-                            "min_price": min(
-                                [p.get("price", 9999) for t in trains for p in t.get("prices", []) if p.get("price")],
-                                default=0,
-                            ),
+                            "min_price": self._extract_min_price_text(trains),
                         }
                     )
             except Exception as e:
@@ -247,7 +300,7 @@ class TrainAPI:
             comparison += "| 路线 | 车次数量 | 最早出发 | 最晚出发 | 最低票价 |\n"
             comparison += "|------|----------|----------|----------|----------|\n"
             for r in results:
-                comparison += f"| {r['route']} | {r['count']} | {r['earliest']} | {r['latest']} | ¥{r['min_price']} |\n"
+                comparison += f"| {r['route']} | {r['count']} | {r['earliest']} | {r['latest']} | {r['min_price']} |\n"
 
         if errors:
             comparison += "\n⚠️ 以下路线查询失败：\n"
@@ -273,11 +326,7 @@ class TrainAPI:
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
             # 计算15天后的日期
-            max_date = (
-                today.replace(day=today.day + 15)
-                if today.day + 15 <= 28
-                else today.replace(month=today.month + 1, day=(today.day + 15) % 28)
-            )
+            max_date = today + timedelta(days=15)
 
             logger.debug(f"验证日期: {date}, 今天: {today}, 查询日: {query_date}, 最大: {max_date}")
 
@@ -305,6 +354,71 @@ class TrainAPI:
         # 验证时间段
         if time_range and time_range not in self.TIME_RANGES:
             raise ValueError(f"无效的时间段: {time_range}，可用选项: {', '.join(self.TIME_RANGES.keys())}")
+
+    def _extract_min_price_text(self, trains: List[Dict[str, Any]]) -> str:
+        """提取最低票价文本；若数据源不提供票价则返回N/A"""
+        numeric_prices: List[float] = []
+
+        for train in trains:
+            for price_item in train.get("prices", []):
+                price_value = price_item.get("price")
+                if price_value in (None, "", "--"):
+                    continue
+                try:
+                    parsed = str(price_value).replace("¥", "").strip()
+                    numeric_prices.append(float(parsed))
+                except (TypeError, ValueError):
+                    continue
+
+        if numeric_prices:
+            return f"¥{min(numeric_prices):.0f}"
+
+        return "N/A"
+
+    def _normalize_juhe_result(
+        self,
+        result: Dict[str, Any],
+        departure_station: str,
+        arrival_station: str,
+    ) -> Dict[str, Any]:
+        """标准化聚合数据返回，确保关键字段稳定可显现"""
+        normalized_items: List[Dict[str, Any]] = []
+
+        for item in result.get("result", []):
+            train_no = str(item.get("train_no") or "")
+            train_type = (train_no[:1] or "").upper()
+
+            train_flags = item.get("train_flags") or []
+            if isinstance(train_flags, str):
+                train_flags = [part.strip() for part in train_flags.split(",") if part.strip()]
+            if not train_flags and train_type in self.TRAIN_FILTERS:
+                train_flags = [self.TRAIN_FILTERS[train_type]]
+
+            prices = item.get("prices")
+            if not isinstance(prices, list):
+                prices = []
+
+            normalized_items.append(
+                {
+                    "train_no": train_no,
+                    "departure_station": item.get("departure_station") or departure_station,
+                    "arrival_station": item.get("arrival_station") or arrival_station,
+                    "departure_station_code": item.get("departure_station_code") or "",
+                    "arrival_station_code": item.get("arrival_station_code") or "",
+                    "departure_time": item.get("departure_time") or "",
+                    "arrival_time": item.get("arrival_time") or "",
+                    "duration": item.get("duration") or "",
+                    "enable_booking": item.get("enable_booking") or "",
+                    "prices": prices,
+                    "train_flags": train_flags,
+                }
+            )
+
+        return {
+            "error_code": result.get("error_code", 0),
+            "reason": result.get("reason", "success"),
+            "result": normalized_items,
+        }
 
 
 # 创建单例实例
