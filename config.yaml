@@ -31,8 +31,13 @@ deepseek:
   timeout: 60
 
 # 聚合数据相关配置
-weather: # 天气API URL
+weather: # 天气API
   api_url: "http://apis.juhe.cn/simpleWeather/query"
+  max_cities_comparison: 5
+train: # 火车票API
+  api_url: "https://apis.juhe.cn/fapigw/train/query"
+  stations_file: "data/train_stations.json"  # 车站数据文件路径
+  max_routes_comparison: 5
 
 # 高德地图相关配置
 amap: # 高德地图API URL

@@ -4,7 +4,7 @@ FastAPI Web应用主模块
 """
 
 from contextlib import asynccontextmanager
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -42,7 +42,13 @@ class ChatResponse(BaseModel):
     """聊天响应模型"""
 
     response: str
-    tool_call: Optional[Dict[str, Any]] = None
+    tool_call: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None
+    raw_ai_response: Optional[str] = None
+
+    model_config = {
+        "extra": "ignore",
+        "arbitrary_types_allowed": True
+    }
 
 
 @asynccontextmanager

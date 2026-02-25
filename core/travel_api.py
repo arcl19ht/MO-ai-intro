@@ -3,6 +3,7 @@
 功能：封装高德地图API的调用逻辑，提供景点、酒店搜索功能
 依赖：httpx
 """
+
 import httpx
 from typing import Dict, Any, List
 
@@ -20,16 +21,12 @@ class TravelAPI:
         """初始化API客户端"""
         # 从配置读取API信息
         self.api_key = get_secret("amap_key")
-        self.api_url = get_config(
-            "amap.api_url", "https://restapi.amap.com/v3/place/text"
-        )
+        self.api_url = get_config("amap.api_url", "https://restapi.amap.com/v3/place/text")
 
         if not self.api_key:
             logger.warning("未配置高德地图API密钥，请检查环境变量或加密文件")
 
-    async def search_attractions(
-        self, keyword: str, city: str = "全国", limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    async def search_attractions(self, keyword: str, city: str = "全国", limit: int = 5) -> List[Dict[str, Any]]:
         """
         搜索景点信息
 
@@ -126,9 +123,7 @@ class TravelAPI:
             logger.error(f"发生未知错误: {e}")
             raise RuntimeError(f"景点查询失败: {str(e)}")
 
-    async def search_hotels(
-        self, keyword: str, city: str = "全国", limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    async def search_hotels(self, keyword: str, city: str = "全国", limit: int = 5) -> List[Dict[str, Any]]:
         """
         搜索酒店/住宿信息
 
