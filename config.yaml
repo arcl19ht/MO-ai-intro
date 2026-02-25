@@ -33,3 +33,7 @@ deepseek:
 # 聚合数据相关配置
 weather: # 天气API URL
   api_url: "http://apis.juhe.cn/simpleWeather/query"
+
+# 高德地图相关配置
+amap: # 高德地图API URL
+  api_url: "https://restapi.amap.com/v3/place/text"

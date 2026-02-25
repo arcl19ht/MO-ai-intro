@@ -367,7 +367,7 @@
                     if (data.tools && data.tools.length > 0) {
                         toolsText += '📦 <strong>可用工具</strong>:<br>';
                         data.tools.forEach(t => {
-                            toolsText += `  - ${t.name}: ${t.description || '无描述'}<br>`;
+                            toolsText += `  ◆ ${t.name}: ${t.description || '无描述'}<br>`;
                         });
                     }
                     
@@ -375,7 +375,7 @@
                     if (data.resources && data.resources.length > 0) {
                         toolsText += '<br>📄 <strong>静态资源</strong>:<br>';
                         data.resources.forEach(r => {
-                            toolsText += `  - ${r.name}: ${r.description || '无描述'}<br>`;
+                            toolsText += `  ◆ ${r.name}: ${r.description || '无描述'}<br>`;
                             toolsText += `    URI: ${r.uri}<br>`;
                         });
                     }
@@ -384,7 +384,7 @@
                     if (data.resource_templates && data.resource_templates.length > 0) {
                         toolsText += '<br>🔧 <strong>资源模板（需参数）</strong>:<br>';
                         data.resource_templates.forEach(t => {
-                            toolsText += `  - ${t.name}: ${t.description || '无描述'}<br>`;
+                            toolsText += `  ◆ ${t.name}: ${t.description || '无描述'}<br>`;
                             toolsText += `    URI模板: ${t.uriTemplate}<br>`;
                         });
                     }
@@ -393,7 +393,7 @@
                     if (data.prompts && data.prompts.length > 0) {
                         toolsText += '<br>💡 <strong>可用提示词</strong>:<br>';
                         data.prompts.forEach(p => {
-                            toolsText += `  - ${p.name}: ${p.description || '无描述'}<br>`;
+                            toolsText += `  ◆ ${p.name}: ${p.description || '无描述'}<br>`;
                         });
                     }
                     
