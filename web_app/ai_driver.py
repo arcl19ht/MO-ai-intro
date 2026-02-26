@@ -614,7 +614,7 @@ class AIDriver:
 
     async def _get_final_answer(self, messages: List[Dict]) -> str:
         """获取最终的AI回答 - 增强版"""
-        max_retries = 2
+        max_retries = 9
         retry_delay = 1
 
         for attempt in range(max_retries + 1):
