@@ -4,7 +4,7 @@
 """
 
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 from pathlib import Path
 
 from modules.YA_Common.utils.logger import get_logger
@@ -78,7 +78,9 @@ class TrainStations:
         """
         return self.stations.get(name)
 
-    def search_stations(self, keyword: str, search_by: str = "name") -> List[Dict[str, str]]:
+    def search_stations(
+        self, keyword: str, search_by: str = "name"
+    ) -> List[Dict[str, str]]:
         """
         搜索车站
 
@@ -150,7 +152,9 @@ class TrainStations:
             f"  城市: {station.get('station_city')}"
         )
 
-    def format_station_list(self, stations: List[Dict[str, str]], max_items: int = 20) -> str:
+    def format_station_list(
+        self, stations: List[Dict[str, str]], max_items: int = 20
+    ) -> str:
         """
         格式化车站列表为可读文本
 

@@ -7,7 +7,7 @@
 | 姓名 | 学号 | 分工 | 备注 |
 | :------: | :------: | :--: | :--: | 
 | 周子闰 | U202414650 | 旅游助手板块框架工具层和核心层板块，组织团队分工开发|  |
-| 徐可 | U202414156 |      |      |
+| 徐可 | U202414156 | Web应用和MCP客户端、AI驱动框架，天气和火车助手框架工具编写 |      |
 |      |      |      |      |
 
 ### Tool 列表
@@ -51,6 +51,7 @@
   - `train_stations.py`: 火车站数据处理核心模块，加载和查询车站信息
 - `tools`: 
   - `weather_tool.py`: 定义天气查询工具接口，包含单城市查询和多城市对比功能
+  - `travel_tool.py`: 定义景点、酒店查询工具接口，包含旅游规划功能
   - `train_tool.py`: 定义列车时刻表查询、路线对比等工具接口
 - `resources`:
   - `train_stations.py`: 定义车站数据资源接口，提供多种查询方式
@@ -61,7 +62,7 @@
   - `weather`: 获取天气API相关配置
   - `train`: 获取火车API相关配置
   - `amap`: 获取高德地图API相关配置
-- `web_app`: 基于Fast API的web应用核心代码
+- `web_app`: 基于FastAPI的web应用核心代码
   - `ai_driver.py`: AI驱动模块
   - `main.py`: FastAPI Web应用主模块
   - `mcp_client.py`: MCP客户端模块

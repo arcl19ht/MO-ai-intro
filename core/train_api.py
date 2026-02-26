@@ -5,7 +5,7 @@
 
 import httpx
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from modules.YA_Common.utils.logger import get_logger
 from modules.YA_Common.utils.config import get_config
@@ -34,11 +34,18 @@ class TrainAPI:
     }
 
     # 出发时间段
-    TIME_RANGES = {"凌晨": "[0:00-06:00)", "上午": "[6:00-12:00)", "下午": "[12:00-18:00)", "晚上": "[18:00-24:00)"}
+    TIME_RANGES = {
+        "凌晨": "[0:00-06:00)",
+        "上午": "[6:00-12:00)",
+        "下午": "[12:00-18:00)",
+        "晚上": "[18:00-24:00)",
+    }
 
     def __init__(self):
         """初始化API客户端"""
-        self.api_url = get_config("train.api_url", "https://apis.juhe.cn/fapigw/train/query")
+        self.api_url = get_config(
+            "train.api_url", "https://apis.juhe.cn/fapigw/train/query"
+        )
         self.api_key = get_secret("juhe_train_api_key")
 
         if not self.api_key:
@@ -51,19 +58,19 @@ class TrainAPI:
         date: str,
         search_type: str = "1",
         filter: Optional[str] = None,
-        enable_booking: Optional[str] = None,
+        enable_booking: str = "2",  # ✅ 默认返回所有班次
         departure_time_range: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         查询列车时刻表
 
         Args:
-            departure_station: 出发站，如"北京"、"北京南"或站点编码"VNP"
-            arrival_station: 到达站，如"上海"、"苏州北"或站点编码"OHH"
+            departure_station: 出发站，如"北京南"、"上海虹桥"
+            arrival_station: 到达站，如"苏州北"、"杭州东"
             date: 出发日期，格式"YYYY-MM-DD"，仅允许15天内的日期
             search_type: 查询方式，"1"-通过站点名称，"2"-通过站点编码
-            filter: 车次筛选条件，如"G"（高铁）、"D"（动车），多个条件可组合如"GD"
-            enable_booking: 是否可预定，"1"-仅返回可预定的班次，"2"-所有
+            filter: 车次筛选条件，如"G"（高铁）、"D"（动车）、多个条件不可组合，默认为全部类型
+            enable_booking: 是否可预定，"1"-仅返回可预定的班次，"2"-所有（默认）
             departure_time_range: 出发时间选择，可选"凌晨"/"上午"/"下午"/"晚上"
 
         Returns:
@@ -72,23 +79,6 @@ class TrainAPI:
         Raises:
             ValueError: 参数验证失败时抛出
             RuntimeError: API调用失败或返回错误时抛出
-
-        Example:
-            {
-                "result": [
-                    {
-                        "train_no": "G25",
-                        "departure_station": "北京南",
-                        "arrival_station": "苏州北",
-                        "departure_time": "18:04",
-                        "arrival_time": "22:32",
-                        "duration": "04:28",
-                        "enable_booking": "Y",
-                        "prices": [...],
-                        "train_flags": ["智能动车组", "复兴号"]
-                    }
-                ]
-            }
         """
         # 参数验证
         self._validate_params(date, filter, departure_time_range)
@@ -103,13 +93,12 @@ class TrainAPI:
             "departure_station": departure_station,
             "arrival_station": arrival_station,
             "date": date,
+            "enable_booking": enable_booking,  # ✅ 默认传2
         }
 
         # 添加可选参数
         if filter:
             params["filter"] = filter
-        if enable_booking:
-            params["enable_booking"] = enable_booking
         if departure_time_range:
             params["departure_time_range"] = departure_time_range
 
@@ -124,7 +113,9 @@ class TrainAPI:
 
                 # 检查业务状态码
                 if result.get("error_code") != 0:
-                    error_msg = result.get("reason", f"未知错误({result.get('error_code')})")
+                    error_msg = result.get(
+                        "reason", f"未知错误({result.get('error_code')})"
+                    )
                     raise RuntimeError(f"API返回错误: {error_msg}")
 
                 return result
@@ -136,7 +127,9 @@ class TrainAPI:
         except Exception as e:
             raise RuntimeError(f"列车查询失败: {str(e)}")
 
-    async def query_trains_simple(self, departure: str, arrival: str, date: str, filter: Optional[str] = None) -> str:
+    async def query_trains_simple(
+        self, departure: str, arrival: str, date: str, filter: Optional[str] = None
+    ) -> str:
         """
         查询列车并返回简化版的文字描述
 
@@ -151,7 +144,10 @@ class TrainAPI:
         """
         try:
             result = await self.query_trains(
-                departure_station=departure, arrival_station=arrival, date=date, filter=filter
+                departure_station=departure,
+                arrival_station=arrival,
+                date=date,
+                filter=filter,
             )
 
             trains = result.get("result", [])
@@ -164,17 +160,26 @@ class TrainAPI:
             output += f"共找到 {len(trains)} 个车次：\n"
             output += "=" * 50 + "\n\n"
 
-            for i, train in enumerate(trains[:10], 1):  # 最多显示10个
+            for i, train in enumerate(trains[:10], 1):
                 output += f"**{i}. {train.get('train_no')}**\n"
                 output += f"   🕒 {train.get('departure_time')} → {train.get('arrival_time')}  (历时 {train.get('duration')})\n"
 
                 # 显示票价信息
                 prices = train.get("prices", [])
                 if prices:
-                    price_info = []
-                    for p in prices[:3]:  # 最多显示3种票价
-                        price_info.append(f"{p.get('seat_name')}: ¥{p.get('price')}")
-                    output += f"   💰 {' | '.join(price_info)}\n"
+                    # 找出有票的座位
+                    available = [p for p in prices if p.get("num") not in ["无", "0"]]
+                    if available:
+                        price_info = []
+                        for p in available[:3]:
+                            price_info.append(
+                                f"{p.get('seat_name')}: ¥{p.get('price')}"
+                            )
+                        output += f"   💰 有票座位: {' | '.join(price_info)}\n"
+
+                    # 显示所有票价（可选）
+                    # all_prices = [f"{p.get('seat_name')}: ¥{p.get('price')}" for p in prices[:5]]
+                    # output += f"   💺 票价: {' | '.join(all_prices)}\n"
 
                 # 显示列车标签
                 flags = train.get("train_flags", [])
@@ -195,7 +200,9 @@ class TrainAPI:
             logger.error(f"获取列车信息失败: {e}")
             raise
 
-    async def compare_routes(self, routes: List[Dict[str, str]], date: str, filter: Optional[str] = None) -> str:
+    async def compare_routes(
+        self, routes: List[Dict[str, str]], date: str, filter: Optional[str] = None
+    ) -> str:
         """
         对比多个路线的列车信息
 
@@ -222,8 +229,18 @@ class TrainAPI:
 
                 # 提取最早和最晚的车次
                 if trains:
-                    earliest = min(trains, key=lambda x: x.get("departure_time", "00:00"))
+                    earliest = min(
+                        trains, key=lambda x: x.get("departure_time", "00:00")
+                    )
                     latest = max(trains, key=lambda x: x.get("departure_time", "00:00"))
+
+                    # 计算最低票价
+                    min_price = float("inf")
+                    for train in trains:
+                        for price in train.get("prices", []):
+                            p = price.get("price")
+                            if p and isinstance(p, (int, float)) and p < min_price:
+                                min_price = p
 
                     results.append(
                         {
@@ -231,10 +248,7 @@ class TrainAPI:
                             "count": len(trains),
                             "earliest": earliest.get("departure_time"),
                             "latest": latest.get("departure_time"),
-                            "min_price": min(
-                                [p.get("price", 9999) for t in trains for p in t.get("prices", []) if p.get("price")],
-                                default=0,
-                            ),
+                            "min_price": min_price if min_price != float("inf") else 0,
                         }
                     )
             except Exception as e:
@@ -255,7 +269,9 @@ class TrainAPI:
 
         return comparison
 
-    def _validate_params(self, date: str, filter: Optional[str], time_range: Optional[str]) -> None:
+    def _validate_params(
+        self, date: str, filter: Optional[str], time_range: Optional[str]
+    ) -> None:
         """
         验证参数有效性
 
@@ -272,27 +288,23 @@ class TrainAPI:
             query_date = datetime.strptime(date, "%Y-%m-%d")
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-            # 计算15天后的日期
-            max_date = (
-                today.replace(day=today.day + 15)
-                if today.day + 15 <= 28
-                else today.replace(month=today.month + 1, day=(today.day + 15) % 28)
-            )
+            # ✅ 正确的15天计算方式
+            max_date = today + timedelta(days=15)
 
-            logger.debug(f"验证日期: {date}, 今天: {today}, 查询日: {query_date}, 最大: {max_date}")
+            logger.debug(
+                f"验证日期: {date}, 今天: {today}, 查询日: {query_date}, 最大: {max_date}"
+            )
 
             if query_date < today:
                 raise ValueError(f"出发日期不能早于今天 ({today.strftime('%Y-%m-%d')})")
             if query_date > max_date:
-                raise ValueError(f"只能查询15天内的车次，最大日期为 {max_date.strftime('%Y-%m-%d')}")
+                raise ValueError(
+                    f"只能查询15天内的车次，最大日期为 {max_date.strftime('%Y-%m-%d')}"
+                )
 
         except ValueError as e:
-            if "day is out of range" in str(e):
-                # 处理月份边界问题
-                logger.error(f"日期范围错误: {date}")
-                raise ValueError(f"无效的日期: {date}，请检查月份天数是否正确")
-            elif "does not match" in str(e):
-                raise ValueError("日期格式错误，应为YYYY-MM-DD")
+            if "does not match" in str(e):
+                raise ValueError("日期格式错误，应为 YYYY-MM-DD，例如 2026-02-26")
             raise
 
         # 验证filter
@@ -300,11 +312,17 @@ class TrainAPI:
             valid_filters = set(self.TRAIN_FILTERS.keys())
             invalid = set(filter) - valid_filters
             if invalid:
-                raise ValueError(f"无效的车次筛选条件: {', '.join(invalid)}，可用条件: {', '.join(valid_filters)}")
+                raise ValueError(
+                    f"无效的车次筛选条件: {', '.join(invalid)}，"
+                    f"可用条件: {', '.join(valid_filters)}"
+                )
 
         # 验证时间段
         if time_range and time_range not in self.TIME_RANGES:
-            raise ValueError(f"无效的时间段: {time_range}，可用选项: {', '.join(self.TIME_RANGES.keys())}")
+            raise ValueError(
+                f"无效的时间段: {time_range}，"
+                f"可用选项: {', '.join(self.TIME_RANGES.keys())}"
+            )
 
 
 # 创建单例实例

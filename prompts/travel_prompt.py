@@ -1,5 +1,6 @@
 from prompts import YA_MCPServer_Prompt
-from typing import Any 
+from typing import Any
+
 
 @YA_MCPServer_Prompt(
     name="smart_travel_plan",
@@ -25,19 +26,21 @@ from typing import Any
     # ]
 )
 async def smart_travel_plan_prompt(
-    destination: str = "未知目的地", 
-    origin: str = "本地", 
-    
+    destination: str = "未知目的地",
+    origin: str = "本地",
 ) -> Any:
     """
     生成一个复杂的 System Prompt，指导 AI 按顺序调用 train_tool, weather_tool, travel_tool, hello_tool
     """
     if destination == "未知目的地":
-        destination = kwargs.get("arrival", kwargs.get("destination_city", "未知目的地"))
+        destination = kwargs.get(
+            "arrival", kwargs.get("destination_city", "未知目的地")
+        )
     if origin == "本地":
         origin = kwargs.get("departure", kwargs.get("departure_city", "本地"))
 
     from modules.YA_Common.utils.logger import get_logger
+
     logger = get_logger("prompt_runtime")
     logger.info(f"⚡️ [RUNTIME] Prompt 执行中... 目的地:{destination}, 出发地:{origin}")
     yield f"""
