@@ -19,7 +19,9 @@ class WeatherAPI:
     def __init__(self):
         """初始化API客户端"""
         # 从配置读取API信息
-        self.api_url = get_config("weather.api_url", "http://apis.juhe.cn/simpleWeather/query")
+        self.api_url = get_config(
+            "weather.api_url", "http://apis.juhe.cn/simpleWeather/query"
+        )
         self.api_key = get_secret("juhe_weather_api_key")
 
         if not self.api_key:

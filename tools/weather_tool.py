@@ -3,7 +3,7 @@
 提供城市天气查询功能
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from tools import YA_MCPServer_Tool
 from core.weather_api import weather_api
@@ -74,47 +74,50 @@ async def get_weather(city: str, format: str = "simple") -> Any:
     name="get_weather_comparison",
     title="Compare Cities Weather",
     description="对比多个城市的天气情况。"
-                "【参数说明】"
-                "cities: 必填，城市名称列表，如['北京', '上海', '广州']。"
-                "最多支持同时对比5个城市。"
-                "\n\n使用示例："
-                "- 对比京沪天气：cities=['北京', '上海']",
+    "【参数说明】"
+    "cities: 必填，城市名称列表，如['北京', '上海', '广州']。"
+    "最多支持同时对比5个城市。"
+    "\n\n使用示例："
+    "- 对比京沪天气：cities=['北京', '上海']",
 )
 async def get_weather_comparison(cities: list) -> str:
     """
     对比多个城市的天气情况
-    
+
     Args:
         cities: 城市名称列表，例如：["北京", "上海", "广州"]
-        
+
     Returns:
         str: 多城市天气对比的友好文本
-        
+
     Raises:
-        ValueError: 城市列表超过5个时抛出
+        ValueError: 城市列表超过5个或空时抛出
         RuntimeError: 查询失败时抛出
     """
+    if not cities:
+        raise ValueError("城市列表不能为空")
+
     if len(cities) > 5:
         raise ValueError("最多支持同时对比5个城市")
-    
+
     logger.info(f"对比天气: cities={cities}")
-    
+
     results = []
     errors = []
-    
+
     for city in cities:
         try:
             weather = await weather_api.query_weather_simple(city)
             results.append(weather)
         except Exception as e:
             errors.append(f"{city}: {str(e)}")
-    
+
     # 组合结果
     comparison = "🌍 **多城市天气对比**\n\n"
     comparison += "\n---\n".join(results)
-    
+
     if errors:
         comparison += "\n\n⚠️ 以下城市查询失败：\n"
         comparison += "\n".join(errors)
-    
+
     return comparison

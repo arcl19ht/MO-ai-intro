@@ -21,12 +21,16 @@ class TravelAPI:
         """初始化API客户端"""
         # 从配置读取API信息
         self.api_key = get_secret("amap_key")
-        self.api_url = get_config("amap.api_url", "https://restapi.amap.com/v3/place/text")
+        self.api_url = get_config(
+            "amap.api_url", "https://restapi.amap.com/v3/place/text"
+        )
 
         if not self.api_key:
             logger.warning("未配置高德地图API密钥，请检查环境变量或加密文件")
 
-    async def search_attractions(self, keyword: str, city: str = "全国", limit: int = 5) -> List[Dict[str, Any]]:
+    async def search_attractions(
+        self, keyword: str, city: str = "全国", limit: int = 5
+    ) -> List[Dict[str, Any]]:
         """
         搜索景点信息
 
@@ -62,7 +66,9 @@ class TravelAPI:
             ]
         """
         if not self.api_key:
-            raise RuntimeError("配置错误：未在 env.yaml 中配置 'amap_key'，无法调用高德地图 API。")
+            raise RuntimeError(
+                "配置错误：未在 env.yaml 中配置 'amap_key'，无法调用高德地图 API。"
+            )
 
         params = {
             "key": self.api_key,
@@ -86,7 +92,9 @@ class TravelAPI:
                 if result.get("status") == "0":
                     error_info = result.get("info", "未知错误")
                     error_code = result.get("infocode", "")
-                    raise RuntimeError(f"高德 API 返回错误 [{error_code}]: {error_info}")
+                    raise RuntimeError(
+                        f"高德 API 返回错误 [{error_code}]: {error_info}"
+                    )
 
                 if result.get("info") != "OK":
                     raise RuntimeError(f"高德 API 响应异常: {result.get('info')}")
@@ -123,7 +131,9 @@ class TravelAPI:
             logger.error(f"发生未知错误: {e}")
             raise RuntimeError(f"景点查询失败: {str(e)}")
 
-    async def search_hotels(self, keyword: str, city: str = "全国", limit: int = 5) -> List[Dict[str, Any]]:
+    async def search_hotels(
+        self, keyword: str, city: str = "全国", limit: int = 5
+    ) -> List[Dict[str, Any]]:
         """
         搜索酒店/住宿信息
 
@@ -157,7 +167,9 @@ class TravelAPI:
             ]
         """
         if not self.api_key:
-            raise RuntimeError("配置错误：未在 env.yaml 中配置 'amap_key'，无法调用高德地图 API。")
+            raise RuntimeError(
+                "配置错误：未在 env.yaml 中配置 'amap_key'，无法调用高德地图 API。"
+            )
 
         # 自动补全关键词
         hotel_keywords = ["酒店", "宾馆", "民宿", "住宿", "客栈"]
@@ -239,7 +251,9 @@ class TravelAPI:
         weather_key = get_secret("juhe_weather_api_key")
 
         if not weather_key:
-            raise RuntimeError("未配置天气 API Key，请在 env.yaml 中配置 'juhe_weather_api_key'")
+            raise RuntimeError(
+                "未配置天气 API Key，请在 env.yaml 中配置 'juhe_weather_api_key'"
+            )
 
         url = get_config("weather.api_url", "http://apis.juhe.cn/simpleWeather/query")
         params = {"city": city, "key": weather_key}

@@ -17,7 +17,7 @@ async def start_mcp_server():
     """启动MCP服务器（SSE模式）- 不捕获输出"""
     logger.info("正在启动MCP服务器...")
 
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     # 检查config.yaml中transport配置

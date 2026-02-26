@@ -6,7 +6,7 @@ AI驱动模块
 import json
 import re
 import asyncio
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 
 import httpx
@@ -31,7 +31,9 @@ class AIDriver:
         """
         self.mcp_client = mcp_client
         self.api_key = get_secret("deepseek_api_key")
-        self.api_url = get_config("deepseek.api_url", "https://api.deepseek.com/chat/completions")
+        self.api_url = get_config(
+            "deepseek.api_url", "https://api.deepseek.com/chat/completions"
+        )
         self.model = get_config("deepseek.model", "deepseek-chat")
         self.temperature = get_config("deepseek.temperature", 0.7)
         self.timeout = get_config("deepseek.timeout", 60)
@@ -47,13 +49,17 @@ class AIDriver:
         try:
             self.mcp_tools_info = await self.mcp_client.list_tools()
             self.mcp_resources_info = await self.mcp_client.list_resources()
-            self.mcp_resource_templates = await self.mcp_client.list_resource_templates()
+            self.mcp_resource_templates = (
+                await self.mcp_client.list_resource_templates()
+            )
             self.mcp_prompts_info = await self.mcp_client.list_prompts()
 
             logger.info(f"MCP初始化成功")
             logger.info(f"📦 可用工具: {[t['name'] for t in self.mcp_tools_info]}")
             logger.info(f"📄 静态资源: {[r['name'] for r in self.mcp_resources_info]}")
-            logger.info(f"🔧 资源模板: {[t['name'] for t in self.mcp_resource_templates]}")
+            logger.info(
+                f"🔧 资源模板: {[t['name'] for t in self.mcp_resource_templates]}"
+            )
             logger.info(f"💡 提示词模板: {[p['name'] for p in self.mcp_prompts_info]}")
         except Exception as e:
             logger.error(f"MCP初始化失败: {e}")
@@ -87,7 +93,9 @@ class AIDriver:
                 prompt += f"\n- **{tool['name']}**: {tool.get('description', '无描述')}"
                 if "inputSchema" in tool and "properties" in tool["inputSchema"]:
                     params = []
-                    for param_name, param_info in tool["inputSchema"]["properties"].items():
+                    for param_name, param_info in tool["inputSchema"][
+                        "properties"
+                    ].items():
                         required = param_name in tool["inputSchema"].get("required", [])
                         params.append(f"{param_name}{'*' if required else ''}")
                     prompt += f"\n  参数: {', '.join(params)}"
@@ -345,7 +353,9 @@ class AIDriver:
 
         return prompt
 
-    async def process_message(self, message: str, history: List[Dict] = None) -> Dict[str, Any]:
+    async def process_message(
+        self, message: str, history: List[Dict] = None
+    ) -> Dict[str, Any]:
         """
         处理用户消息 - 支持多步骤信息聚合
         """
@@ -382,7 +392,12 @@ class AIDriver:
 
                 result = response.json()
                 ai_response = result["choices"][0]["message"]["content"]
-                logger.info(f"原始AI响应: {ai_response}")
+                # 如果要在控制台看到带颜色的输出，可以这样：
+                print("\n" + "\033[92m" + "=" * 60)
+                print("🤖 AI原始响应:")
+                print("=" * 60)
+                print(ai_response)
+                print("=" * 60 + "\033[0m" + "\n")
 
         except asyncio.CancelledError:
             logger.warning("DeepSeek API请求被取消")
@@ -429,7 +444,9 @@ class AIDriver:
 
         # 先找```json代码块
         code_block_pattern = r"```(?:json)?\s*(.*?)\s*```"
-        code_blocks = re.findall(code_block_pattern, ai_response, re.DOTALL | re.IGNORECASE)
+        code_blocks = re.findall(
+            code_block_pattern, ai_response, re.DOTALL | re.IGNORECASE
+        )
 
         for block in code_blocks:
             # 从代码块中提取完整JSON
@@ -473,7 +490,9 @@ class AIDriver:
                         logger.info(f"读取资源: {uri}")
 
                         result = await self.mcp_client.read_resource(uri)
-                        execution_results.append({"type": "read_resource", "uri": uri, "result": result})
+                        execution_results.append(
+                            {"type": "read_resource", "uri": uri, "result": result}
+                        )
 
                     elif action == "use_prompt":
                         prompt_name = cmd.get("prompt")
@@ -499,19 +518,32 @@ class AIDriver:
                         except asyncio.TimeoutError:
                             logger.error(f"提示词 {prompt_name} 调用超时")
                             execution_results.append(
-                                {"type": "error", "prompt": prompt_name, "error": "提示词调用超时"}
+                                {
+                                    "type": "error",
+                                    "prompt": prompt_name,
+                                    "error": "提示词调用超时",
+                                }
                             )
 
                         except asyncio.CancelledError:
                             logger.warning(f"提示词 {prompt_name} 调用被取消")
                             execution_results.append(
-                                {"type": "error", "prompt": prompt_name, "error": "提示词调用被取消"}
+                                {
+                                    "type": "error",
+                                    "prompt": prompt_name,
+                                    "error": "提示词调用被取消",
+                                }
                             )
 
                         except Exception as e:
                             logger.error(f"执行提示词失败: {e}")
                             execution_results.append(
-                                {"type": "error", "prompt": prompt_name, "arguments": arguments, "error": str(e)}
+                                {
+                                    "type": "error",
+                                    "prompt": prompt_name,
+                                    "arguments": arguments,
+                                    "error": str(e),
+                                }
                             )
                     else:
                         logger.warning(f"未知action类型: {action}")
@@ -529,7 +561,9 @@ class AIDriver:
                     )
                 except Exception as e:
                     logger.error(f"执行指令失败: {e}")
-                    execution_results.append({"type": "error", "command": json_str, "error": str(e)})
+                    execution_results.append(
+                        {"type": "error", "command": json_str, "error": str(e)}
+                    )
 
         # 如果有执行结果，生成最终回答
         if execution_results:
@@ -543,11 +577,15 @@ class AIDriver:
             summary_lines = []
             for r in execution_results:
                 if r["type"] == "tool_call":
-                    summary_lines.append(f"工具 [{r['tool']}] 返回: {r['result'][:200]}")
+                    summary_lines.append(
+                        f"工具 [{r['tool']}] 返回: {r['result'][:200]}"
+                    )
                 elif r["type"] == "read_resource":
                     summary_lines.append(f"资源 [{r['uri']}] 内容: {r['result'][:200]}")
                 elif r["type"] == "use_prompt":
-                    summary_lines.append(f"提示词 [{r['prompt']}] 生成: {r['result'][:200]}")
+                    summary_lines.append(
+                        f"提示词 [{r['prompt']}] 生成: {r['result'][:200]}"
+                    )
                 else:
                     summary_lines.append(f"错误: {r.get('error', '未知错误')}")
 
@@ -606,7 +644,9 @@ class AIDriver:
                         return result["choices"][0]["message"]["content"]
                     else:
                         error_text = await response.aread()
-                        logger.error(f"API返回错误 (尝试 {attempt + 1}): {response.status_code}")
+                        logger.error(
+                            f"API返回错误 (尝试 {attempt + 1}): {response.status_code}"
+                        )
 
                         if attempt < max_retries:
                             await asyncio.sleep(retry_delay * (attempt + 1))

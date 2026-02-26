@@ -3,7 +3,7 @@
 提供景点搜索、酒店查询、天气查询和智能行程规划功能
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from tools import YA_MCPServer_Tool
 from core.travel_api import travel_api
@@ -72,7 +72,7 @@ async def search_attractions(keyword: str, city: str = "全国") -> Dict[str, An
                 }
             ]
         }
-        
+
         失败示例：
         {
             "success": False,
@@ -328,7 +328,7 @@ async def plan_trip(destination: str) -> Dict[str, Any]:
                       "   - **如家酒店** (300元起)\n\n"
                       "💡 **祝您旅途愉快！**"
         }
-        
+
         失败示例：
         {
             "success": False,

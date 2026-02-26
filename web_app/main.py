@@ -7,8 +7,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional, Union
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -45,10 +44,7 @@ class ChatResponse(BaseModel):
     tool_call: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None
     raw_ai_response: Optional[str] = None
 
-    model_config = {
-        "extra": "ignore",
-        "arbitrary_types_allowed": True
-    }
+    model_config = {"extra": "ignore", "arbitrary_types_allowed": True}
 
 
 @asynccontextmanager
@@ -91,12 +87,12 @@ async def get_status():
         "mcp_connected": len(ai_driver.mcp_tools_info) > 0,
         "tools_count": len(ai_driver.mcp_tools_info),
         "resources_count": len(ai_driver.mcp_resources_info),
-        "resource_templates_count": len(ai_driver.mcp_resource_templates), 
+        "resource_templates_count": len(ai_driver.mcp_resource_templates),
         "prompts_count": len(ai_driver.mcp_prompts_info),
         "tools": ai_driver.mcp_tools_info,
         "resources": ai_driver.mcp_resources_info,
-        "resource_templates": ai_driver.mcp_resource_templates, 
-        "prompts": ai_driver.mcp_prompts_info
+        "resource_templates": ai_driver.mcp_resource_templates,
+        "prompts": ai_driver.mcp_prompts_info,
     }
 
 
