@@ -38,8 +38,10 @@
 
 | 指令名称 | 功能描述 | 输入 | 输出 | 备注 |
 | :------: | :------: | :--: | :--: | :--: |
-|          |          |      |      |      |
-|          |          |      |      |      |
+| greet_user | 生成个性化的欢迎问候消息，用于会话初始化或用户互动。 | name (str): 用户的名字或称呼。 | 字符串：包含用户名字的欢迎语（例如：“你好，张三！欢迎使用 YA MCP Server。”）|  最简单的 Prompt 示例，演示了 MCP Prompt 的基本结构和 yield 返回机制。 |
+| smart_travel_plan| 智能全案旅行规划师：一键生成包含【车次查询】、【天气预警】、【景点推荐】、【住宿建议】的完整旅行攻略。| destination (str): 目的地城市（必填）。
+origin (str): 出发地城市（可选，默认“本地”）。
+(兼容参数：arrival, departure)|  结构化 Markdown 报告，包含：天气与穿衣指南，大交通车次与车站提醒，必玩景点清单，住宿建议，综合温馨提示| 组合型 Prompt：内部定义了严格的工作流（Workflow），强制 AI 串行调用 4 个工具。|
 |          |          |      |      |      |
 
 ### 项目结构
@@ -67,7 +69,6 @@
   - `main.py`: FastAPI Web应用主模块
   - `mcp_client.py`: MCP客户端模块
 - `start.py`: 启动MCP服务器和Web应用
-- [XXXX(其他新添加的文件与目录介绍)]
 
 ### 如何使用
 
@@ -80,10 +81,11 @@ uv sync
 #### 用sops读取API key
 按文档中`sops.mdx`中的指导生成公钥和私钥，添加`sops`配置文件`.sops.yaml`。接着**在根目录**运行管理密钥文件的脚本（可复制到根目录下运行），在打开的文本编辑器中输入：
 ```yaml
-# 替换原先的默认内容
 secrets:
-    deepseek_api_key: # 此处填入API key
-    # 其它API key……
+    deepseek_api_key: 您的api
+    juhe_weather_api_key: 聚合天气api
+    juhe_train_api_key: 聚合火车查询api
+    amap_key: 高德地图web端服务api
 ```
 关闭编辑器后，会在根目录下生成新的`env.yaml`文件，API key设置完成。
 
