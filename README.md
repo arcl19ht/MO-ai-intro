@@ -101,7 +101,10 @@ uv run start.py
 - `deepseek_api_key`: 用于调用 DeepSeek 大语言模型，驱动 AI 对话与工具调度。
 - `juhe_weather_api_key`: 用于调用聚合数据天气预报 API，提供实时天气 (get_weather) 信息。
 - `juhe_train_api_key`: 用于调用聚合数据火车订票查询 API，提供实时列车 (query_train_schedule) 信息。
-- `amap_key`: 用于调用高德地图 Web 服务 API，提供景点 (search_attractions) 和酒店 (search_hotels) 数据。#### 技术栈说明
+- `amap_key`: 用于调用高德地图 Web 服务 API，提供景点 (search_attractions) 和酒店 (search_hotels) 数据。
+
+ 
+#### 技术栈说明
 
 本项目基于 LLM (Large Language Model) 应用能力开发，核心逻辑为 Rule-based (基于规则) 的 API 编排与 Prompt Engineering (提示词工程)，通过异步 IO (asyncio, httpx) 实现高并发工具调用。未使用 PyTorch、Tensorflow 等深度学习框架和自训练的机器学习或深度学习模型。
 
